@@ -1,0 +1,182 @@
+---
+layout: post
+title:  "iOS crash 闪退日志解析"
+date:   2017-05-05 18:03:09
+categories: iOS
+---
+
+# 前言
+
+查看闪退日志的步骤  
+（1）获取闪退日志  
+（2）获取symbolicatecrash 脚本  
+（3）获取闪退日志对应的符号表（.dSYM 文件）  
+（4）解析闪退日志
+
+
+## 苹果官网关于闪退日志的介绍：
+https://developer.apple.com/library/content/technotes/tn2151/_index.html
+
+Understanding and Analyzing Application Crash Reports
+
+When an application crashes, a crash report is created which is very useful for understanding what caused the crash. This document contains essential information about how to symbolicate, understand, and interpret crash reports.
+
+理解以及分析闪退日志：
+
+当app发生闪退的时候，会创建闪退日志，这对于我们查找闪退原因是非常有用的。
+
+## 一、获取iOS 设备上闪退日志
+
+![image](https://github.com/StartHui/MarkDowdImage/blob/master/Crash/tn2151_crash_flow.png?raw=true)
+
+1、（windows 电脑）使用pp助手获取闪退日志 将iOS 设备和winwods电脑连接，打开pp助手，查看闪退日志，将闪退日志导出，导出后会得到一个后缀为ips的文件。修改后缀名为.crash。   
+2、（MAC电脑）将设备连接到电脑，进入 ~/Library/Logs/CrashReporter/MobileDevice 文件夹可以获得闪退日志。  
+3、通过Xcode 获取闪退日志 ：打开Xcode > window > Devices > view device logs 就可以查看闪退日志。  
+4、获取已经发布到appStore上和上传到testflight 上的包，在用户和测试员设备上发生的闪退日志。打开Xcode>Window>organizer 选择 crashes 标签。然后我们就可以看见一个闪退日志列表。选中某一个闪退日志右键显示包内容，然后进入DistributionInfos>all>logs。就可以看见闪退日志了。        （⚠️ 如果发布的时.dysm 文件也上传到了apple 的服务器，一般点击 open in project 就会直接定位到项目闪退的位置。
+苹果官网关于发布到市场和testflight 上的闪退日志的介绍
+https://developer.apple.com/library/content/documentation/IDEs/Conceptual/AppDistributionGuide/AnalyzingCrashReports/AnalyzingCrashReports.html ）
+
+## 二、闪退日志的组成
+
+```
+{"app_name":"XXXAPP",    
+"app_version":"6.0.0",  
+"bundleID":"com.XXXAPP.app",  
+"adam_id":0,"os_version":  
+"iPhone OS 8.3 (12F70)",  
+"slice_uuid":"xxxxxx",  
+"share_with_app_devs":false,"build_version":"17040602528","is_first_party":false,"bug_type":"109","name":"XXXAPP"}
+Incident Identifier: A7427996-4DA4-457E-B868-990F0EF557F8
+CrashReporter Key:   0bc6652b6f3c9d95786ce42bd4746d49fe7071a6
+Hardware Model:      iPhone7,1
+Process:             XXXAPP [12119]
+Path:                /private/var/mobile/Containers/Bundle/Application/271EC22E-C2EC-4256-A7DD-480F78C1EE52/XXXAPP.app/XXXAPP
+Identifier:          com.XXXAPP.app
+Version:             17040602528 (6.0.0)
+Code Type:           ARM-64 (Native)
+Parent Process:      launchd [1]
+
+Date/Time:           2017-04-10 13:35:15.100 +0800
+Launch Time:         2017-04-10 13:18:14.005 +0800
+OS Version:          iOS 8.3 (12F70)
+Report Version:      105
+
+Exception Type:  EXC_BAD_ACCESS (SIGSEGV)
+Exception Subtype: KERN_INVALID_ADDRESS at 0x0000000000000010
+Triggered by Thread:  0
+
+Thread 0 name:  Dispatch queue: com.apple.main-thread
+Thread 0 Crashed:
+0   libobjc.A.dylib               	0x0000000194453bd0 0x194438000 + 113616
+1   XXXAPP              	0x0000000100944330 0x10006c000 + 9274160
+2   XXXAPP              	0x0000000100935014 0x10006c000 + 9211924
+3   XXXAPP              	0x0000000100952be4 0x10006c000 + 9333732
+4   XXXAPP              	0x000000010099af78 0x10006c000 + 9629560
+5   XXXAPP              	0x00000001009af4a0 0x10006c000 + 9712800
+6   UIKit                         	0x000000018766bfbc 0x187644000 + 163772
+7   UIKit                         	0x00000001876d82d4 0x187644000 + 606932
+8   UIKit                         	0x00000001876d823c 0x187644000 + 606780
+9   UIKit                         	0x0000000187648710 0x187644000 + 18192
+10  CoreFoundation                	0x0000000182bcc2a0 0x182aec000 + 918176
+11  CoreFoundation                	0x0000000182bc922c 0x182aec000 + 905772
+12  CoreFoundation                	0x0000000182bc960c 0x182aec000 + 906764
+13  CoreFoundation                	0x0000000182af52d0 0x182aec000 + 37584
+14  GraphicsServices              	0x000000018c30b6f8 0x18c300000 + 46840
+15  UIKit                         	0x00000001876bafa8 0x187644000 + 487336
+16  XXXAPP              	0x00000001006c6468 0x10006c000 + 6661224
+17  libdyld.dylib                 	0x0000000194abea04 0x194abc000 + 10756
+```
+
+
+关键字 | 含义
+---|---
+Incident Idnetifier | 闪退的唯一标示
+CrashReporter Key | 设备标识相对应的唯一键值(并非真正的设备的UDID，苹果为了保护用户隐私iOS6以后已经无法获取)。通常同一个设备上同一版本的App发生Crash时，该值都是一样的。
+Hardware Model | 设备类型
+Version  | 	当前App的版本号，由Info.plist中的两个字段组成，CFBundleShortVersionString and CFBundleVersion![image](https://github.com/StartHui/MarkDowdImage/blob/master/Crash/buildnum.png?raw=true)
+Code Type |          当前App的CPU架构
+Exception Types | 异常类型
+Exception Subtype |	异常子类型
+
+⚠️  每次打包的时候，一定要确保 Version的唯一性。
+---
+
+
+常见的异常类型
+
+
+异常 | 描述 | 注释
+---|--- | ---
+EXC_BAD_ACCESS |	Bad Memory Access |	Access to “bad” memory address. The “bad” can be either “the address does not exist” or “the app does not have privilege to access to”. So it usually ties to SIGBUS and SIGSEGV.
+EXC_CRASH |	Abnormal Exit |	Usually tie to SIGABRT, meaning the app exits abnormally by detecting some uncaught exceptions through the code.
+EXC_BREAKPOINT |	Trace / breakpoint  Trap|	Usually tie to SIGTRAP. Can be triggered either by your own code or NSExceptions being thrown.
+EXC_GUARD|	Violated Guarded Resource Protection|	Be triggered by violating a guarded resource protection, like “certain file descriptor”.
+EXC_BAD_INSTRUCTION|	Illegal Instruction|	Usually related to certain illegal or undefined instruction or operand.
+EXC_RESOURCE|	Resource Limit|	App crashes by hitting resource consumption limit.
+00000020|	Hexadecimal Exception Type|	Not “OS Kernel” exception.
+
+
+参考文章
+http://www.5neo.be/understanding-ios-exception-types/
+
+
+## 三、符号化闪退日志
+
+1、获取symbolicatecrash 工具
+
+打开终端输入下面的命令
+
+> find /Applications/Xcode.app -name symbolicatecrash -type f
+
+或者
+
+> find /Applications/Xcode.app -name symbolicatecrash  
+
+我们会得到这样一个路径
+
+
+> /Applications/Xcode.app/Contents/Developer/Platforms/AppleTVSimulator.platform/Developer/Library/PrivateFrameworks/DVTFoundation.framework/symbolicatecrash
+
+打开finder 前往这个路径
+
+![image](https://github.com/StartHui/MarkDowdImage/blob/master/Crash/sy.png?raw=true)
+
+
+
+拷贝 symbolicatecrash
+
+2、获取 .dysm 文件
+
+打开Xcode 选择 window >  organizer >  选择Archives 标签 。我们可以看到我们打完包的一个列表。我们可以看见闪退日志的信息里面有这样一个版本号的信息 Version:             17040602528 (6.0.0)，，找到打包列表里面和这个 build 号相对应的.xcarchive文件，然后右键show in finder
+>显示包内容进入dSYMs 文件夹>拷贝项目相应的 .dsyM 文件
+
+
+3、将.crash 文件 和 拷贝出来的 symbolicatecrash 脚本 以及 闪退日志对应的 .dsyM 文件拷贝到同一个文件夹里面。然后打开终端进入这个文件夹。
+
+![image](https://github.com/StartHui/MarkDowdImage/blob/master/Crash/123123.png?raw=true)
+
+>  cd /Users/StarHui/Desktop/20170417crash/crash1
+
+注释：cd /Users/你电脑的用户名/存放上述三个文件的文件夹路径
+
+然后输入（只需要输入一次）
+
+> export DEVELOPER_DIR="/Applications/XCode.app/Contents/Developer"
+
+然后输入
+
+> ./symbolicatecrash  crash1.crash  xxx.app.dSYM > crashLog3.txt
+
+等命令执行完成之后，我们可以在刚才的文件夹下面发现 crashLog3.txt 符号化后的闪退日志。
+
+```
+crash1.crash    闪退日志
+xxx.app.dSYM    dySM 文件
+符号化后的日志  crashLog3.txt
+```
+
+我们可以在已经符号化后的闪退日志里面看到我们代码出错的地方。（可以直接定位到闪退发生在那个文件的那一行代码）
+
+![image](https://github.com/StartHui/MarkDowdImage/blob/master/Crash/213123123.png?raw=true)
+
+#总结：写的有不好的地方希望大家指出，我会修正的，大家有什么看不明白的也可以在评论里面提问，我会尽力解答。

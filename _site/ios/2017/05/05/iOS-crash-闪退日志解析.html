@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>    
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width initial-scale=1">
+
+  <title>iOS crash 闪退日志解析</title>
+  <meta name="description" content="前言">
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="canonical" href="http://localhost:4000/ios/2017/05/05/iOS-crash-%E9%97%AA%E9%80%80%E6%97%A5%E5%BF%97%E8%A7%A3%E6%9E%90.html">
+  <link rel="alternate" type="application/atom+xml" title="StarHui" href="http://localhost:4000/feed.xml" />
+  <script src="/scripts/jquery-1.11.2.min.js"></script>
+  <script src="/scripts/pithy.js"></script>
+</head>
+
+
+  <body>
+    <header class="header">
+	<div class="header-container">
+		<div class="nav">
+			
+				<li>
+					<a href="/index.html">首页</a>
+				</li>			
+			
+			
+				<li>
+					<a href="/archive.html">文章</a>
+				</li>			
+			
+			
+				<li>
+					<a href="/category.html">分类</a>
+				</li>			
+			
+			
+				<li>
+					<a href="/about.html">关于我</a>
+				</li>			
+			
+		</div>
+		<div class="description">  </div>		
+		<ul class="social-links">
+			<li>				
+				<a href="https://github.com/StartHui/" title="Github">
+					<img width="19px" height="19px" src="/images/github.png"/>
+				</a>
+			</li>
+			<li>
+				<a href="/feed.xml" title="RSS">
+					<img width="19px" height="19px" src="/images/rss.png"/>
+				</a>
+			</li>
+			<li>
+				<a href="https://twitter.com/StarDreamHui" title="Twitter">
+					<img width="19px" height="19px" src="/images/twitter.png"/>
+				</a>
+			</li>
+			<li>
+				<a href="https://twitter.com/" title="Twitter">
+					<img width="19px" height="19px" src="/images/sinaWeiboIcon.png"/>
+				</a>
+			</li>
+		</ul>		
+	</div>
+</header>
+
+    <br>
+    <div class="page-content">
+      <div class="wrapper">
+        <div class="post">
+  <br>
+  <header class="post-header">
+    <h1 class="post-title">iOS crash 闪退日志解析</h1>
+    <p class="post-meta">May 5, 2017</p>
+  </header>
+
+  <article class="post-content">
+    <h1 id="前言">前言</h1>
+
+<p>查看闪退日志的步骤<br />
+（1）获取闪退日志<br />
+（2）获取symbolicatecrash 脚本<br />
+（3）获取闪退日志对应的符号表（.dSYM 文件）<br />
+（4）解析闪退日志</p>
+
+<h2 id="苹果官网关于闪退日志的介绍">苹果官网关于闪退日志的介绍：</h2>
+<p>https://developer.apple.com/library/content/technotes/tn2151/_index.html</p>
+
+<p>Understanding and Analyzing Application Crash Reports</p>
+
+<p>When an application crashes, a crash report is created which is very useful for understanding what caused the crash. This document contains essential information about how to symbolicate, understand, and interpret crash reports.</p>
+
+<p>理解以及分析闪退日志：</p>
+
+<p>当app发生闪退的时候，会创建闪退日志，这对于我们查找闪退原因是非常有用的。</p>
+
+<h2 id="一获取ios-设备上闪退日志">一、获取iOS 设备上闪退日志</h2>
+
+<p><img src="https://github.com/StartHui/MarkDowdImage/blob/master/Crash/tn2151_crash_flow.png?raw=true" alt="image" /></p>
+
+<p>1、（windows 电脑）使用pp助手获取闪退日志 将iOS 设备和winwods电脑连接，打开pp助手，查看闪退日志，将闪退日志导出，导出后会得到一个后缀为ips的文件。修改后缀名为.crash。 <br />
+2、（MAC电脑）将设备连接到电脑，进入 ~/Library/Logs/CrashReporter/MobileDevice 文件夹可以获得闪退日志。<br />
+3、通过Xcode 获取闪退日志 ：打开Xcode &gt; window &gt; Devices &gt; view device logs 就可以查看闪退日志。<br />
+4、获取已经发布到appStore上和上传到testflight 上的包，在用户和测试员设备上发生的闪退日志。打开Xcode&gt;Window&gt;organizer 选择 crashes 标签。然后我们就可以看见一个闪退日志列表。选中某一个闪退日志右键显示包内容，然后进入DistributionInfos&gt;all&gt;logs。就可以看见闪退日志了。        （⚠️ 如果发布的时.dysm 文件也上传到了apple 的服务器，一般点击 open in project 就会直接定位到项目闪退的位置。
+苹果官网关于发布到市场和testflight 上的闪退日志的介绍
+https://developer.apple.com/library/content/documentation/IDEs/Conceptual/AppDistributionGuide/AnalyzingCrashReports/AnalyzingCrashReports.html ）</p>
+
+<h2 id="二闪退日志的组成">二、闪退日志的组成</h2>
+
+<div class="highlighter-rouge"><pre class="highlight"><code><span class="p">{</span><span class="nt">"app_name"</span><span class="p">:</span><span class="s2">"XXXAPP"</span><span class="p">,</span><span class="w">    
+</span><span class="nt">"app_version"</span><span class="p">:</span><span class="s2">"6.0.0"</span><span class="p">,</span><span class="w">  
+</span><span class="nt">"bundleID"</span><span class="p">:</span><span class="s2">"com.XXXAPP.app"</span><span class="p">,</span><span class="w">  
+</span><span class="nt">"adam_id"</span><span class="p">:</span><span class="mi">0</span><span class="p">,</span><span class="nt">"os_version"</span><span class="p">:</span><span class="w">  
+</span><span class="s2">"iPhone OS 8.3 (12F70)"</span><span class="p">,</span><span class="w">  
+</span><span class="nt">"slice_uuid"</span><span class="p">:</span><span class="s2">"xxxxxx"</span><span class="p">,</span><span class="w">  
+</span><span class="nt">"share_with_app_devs"</span><span class="p">:</span><span class="kc">false</span><span class="p">,</span><span class="nt">"build_version"</span><span class="p">:</span><span class="s2">"17040602528"</span><span class="p">,</span><span class="nt">"is_first_party"</span><span class="p">:</span><span class="kc">false</span><span class="p">,</span><span class="nt">"bug_type"</span><span class="p">:</span><span class="s2">"109"</span><span class="p">,</span><span class="nt">"name"</span><span class="p">:</span><span class="s2">"XXXAPP"</span><span class="p">}</span><span class="w">
+</span><span class="err">Incident</span><span class="w"> </span><span class="err">Identifier:</span><span class="w"> </span><span class="err">A</span><span class="mi">7427996-4</span><span class="err">DA</span><span class="mi">4-457</span><span class="err">E-B</span><span class="mi">868-990</span><span class="err">F</span><span class="mi">0</span><span class="err">EF</span><span class="mi">557</span><span class="err">F</span><span class="mi">8</span><span class="w">
+</span><span class="err">CrashReporter</span><span class="w"> </span><span class="err">Key:</span><span class="w">   </span><span class="mi">0</span><span class="err">bc</span><span class="mi">6652</span><span class="err">b</span><span class="mi">6</span><span class="err">f</span><span class="mi">3</span><span class="err">c</span><span class="mi">9</span><span class="err">d</span><span class="mi">95786</span><span class="err">ce</span><span class="mi">42</span><span class="err">bd</span><span class="mi">4746</span><span class="err">d</span><span class="mi">49</span><span class="err">fe</span><span class="mi">7071</span><span class="err">a</span><span class="mi">6</span><span class="w">
+</span><span class="err">Hardware</span><span class="w"> </span><span class="err">Model:</span><span class="w">      </span><span class="err">iPhone</span><span class="mi">7</span><span class="err">,</span><span class="mi">1</span><span class="w">
+</span><span class="err">Process:</span><span class="w">             </span><span class="err">XXXAPP</span><span class="w"> </span><span class="p">[</span><span class="mi">12119</span><span class="p">]</span><span class="w">
+</span><span class="err">Path:</span><span class="w">                </span><span class="err">/private/var/mobile/Containers/Bundle/Application/</span><span class="mi">271</span><span class="err">EC</span><span class="mi">22</span><span class="err">E-C</span><span class="mi">2</span><span class="err">EC</span><span class="mi">-4256</span><span class="err">-A</span><span class="mi">7</span><span class="err">DD</span><span class="mi">-480</span><span class="err">F</span><span class="mi">78</span><span class="err">C</span><span class="mi">1</span><span class="err">EE</span><span class="mi">52</span><span class="err">/XXXAPP.app/XXXAPP</span><span class="w">
+</span><span class="err">Identifier:</span><span class="w">          </span><span class="err">com.XXXAPP.app</span><span class="w">
+</span><span class="err">Version:</span><span class="w">             </span><span class="mi">17040602528</span><span class="w"> </span><span class="err">(</span><span class="mf">6.0</span><span class="err">.</span><span class="mi">0</span><span class="err">)</span><span class="w">
+</span><span class="err">Code</span><span class="w"> </span><span class="err">Type:</span><span class="w">           </span><span class="err">ARM</span><span class="mi">-64</span><span class="w"> </span><span class="err">(Native)</span><span class="w">
+</span><span class="err">Parent</span><span class="w"> </span><span class="err">Process:</span><span class="w">      </span><span class="err">launchd</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="w">
+
+</span><span class="err">Date/Time:</span><span class="w">           </span><span class="mi">2017-04-10</span><span class="w"> </span><span class="mi">13</span><span class="err">:</span><span class="mi">35</span><span class="err">:</span><span class="mf">15.100</span><span class="w"> </span><span class="err">+</span><span class="mi">0800</span><span class="w">
+</span><span class="err">Launch</span><span class="w"> </span><span class="err">Time:</span><span class="w">         </span><span class="mi">2017-04-10</span><span class="w"> </span><span class="mi">13</span><span class="err">:</span><span class="mi">18</span><span class="err">:</span><span class="mf">14.005</span><span class="w"> </span><span class="err">+</span><span class="mi">0800</span><span class="w">
+</span><span class="err">OS</span><span class="w"> </span><span class="err">Version:</span><span class="w">          </span><span class="err">iOS</span><span class="w"> </span><span class="mf">8.3</span><span class="w"> </span><span class="err">(</span><span class="mi">12</span><span class="err">F</span><span class="mi">70</span><span class="err">)</span><span class="w">
+</span><span class="err">Report</span><span class="w"> </span><span class="err">Version:</span><span class="w">      </span><span class="mi">105</span><span class="w">
+
+</span><span class="err">Exception</span><span class="w"> </span><span class="err">Type:</span><span class="w">  </span><span class="err">EXC_BAD_ACCESS</span><span class="w"> </span><span class="err">(SIGSEGV)</span><span class="w">
+</span><span class="err">Exception</span><span class="w"> </span><span class="err">Subtype:</span><span class="w"> </span><span class="err">KERN_INVALID_ADDRESS</span><span class="w"> </span><span class="err">at</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">0000000000000010</span><span class="w">
+</span><span class="err">Triggered</span><span class="w"> </span><span class="err">by</span><span class="w"> </span><span class="err">Thread:</span><span class="w">  </span><span class="mi">0</span><span class="w">
+
+</span><span class="err">Thread</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="err">name:</span><span class="w">  </span><span class="err">Dispatch</span><span class="w"> </span><span class="err">queue:</span><span class="w"> </span><span class="err">com.apple.main-thread</span><span class="w">
+</span><span class="err">Thread</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="err">Crashed:</span><span class="w">
+</span><span class="mi">0</span><span class="w">   </span><span class="err">libobjc.A.dylib</span><span class="w">               	</span><span class="mi">0</span><span class="err">x</span><span class="mi">0000000194453</span><span class="err">bd</span><span class="mi">0</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">194438000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">113616</span><span class="w">
+</span><span class="mi">1</span><span class="w">   </span><span class="err">XXXAPP</span><span class="w">              	</span><span class="mi">0</span><span class="err">x</span><span class="mi">0000000100944330</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">10006</span><span class="err">c</span><span class="mi">000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">9274160</span><span class="w">
+</span><span class="mi">2</span><span class="w">   </span><span class="err">XXXAPP</span><span class="w">              	</span><span class="mi">0</span><span class="err">x</span><span class="mi">0000000100935014</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">10006</span><span class="err">c</span><span class="mi">000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">9211924</span><span class="w">
+</span><span class="mi">3</span><span class="w">   </span><span class="err">XXXAPP</span><span class="w">              	</span><span class="mi">0</span><span class="err">x</span><span class="mi">0000000100952</span><span class="err">be</span><span class="mi">4</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">10006</span><span class="err">c</span><span class="mi">000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">9333732</span><span class="w">
+</span><span class="mi">4</span><span class="w">   </span><span class="err">XXXAPP</span><span class="w">              	</span><span class="mi">0</span><span class="err">x</span><span class="mi">000000010099</span><span class="err">af</span><span class="mi">78</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">10006</span><span class="err">c</span><span class="mi">000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">9629560</span><span class="w">
+</span><span class="mi">5</span><span class="w">   </span><span class="err">XXXAPP</span><span class="w">              	</span><span class="mi">0</span><span class="err">x</span><span class="mi">00000001009</span><span class="err">af</span><span class="mi">4</span><span class="err">a</span><span class="mi">0</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">10006</span><span class="err">c</span><span class="mi">000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">9712800</span><span class="w">
+</span><span class="mi">6</span><span class="w">   </span><span class="err">UIKit</span><span class="w">                         	</span><span class="mi">0</span><span class="err">x</span><span class="mi">000000018766</span><span class="err">bfbc</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">187644000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">163772</span><span class="w">
+</span><span class="mi">7</span><span class="w">   </span><span class="err">UIKit</span><span class="w">                         	</span><span class="mi">0</span><span class="err">x</span><span class="mi">00000001876</span><span class="err">d</span><span class="mi">82</span><span class="err">d</span><span class="mi">4</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">187644000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">606932</span><span class="w">
+</span><span class="mi">8</span><span class="w">   </span><span class="err">UIKit</span><span class="w">                         	</span><span class="mi">0</span><span class="err">x</span><span class="mi">00000001876</span><span class="err">d</span><span class="mi">823</span><span class="err">c</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">187644000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">606780</span><span class="w">
+</span><span class="mi">9</span><span class="w">   </span><span class="err">UIKit</span><span class="w">                         	</span><span class="mi">0</span><span class="err">x</span><span class="mi">0000000187648710</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">187644000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">18192</span><span class="w">
+</span><span class="mi">10</span><span class="w">  </span><span class="err">CoreFoundation</span><span class="w">                	</span><span class="mi">0</span><span class="err">x</span><span class="mi">0000000182</span><span class="err">bcc</span><span class="mi">2</span><span class="err">a</span><span class="mi">0</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">182</span><span class="err">aec</span><span class="mi">000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">918176</span><span class="w">
+</span><span class="mi">11</span><span class="w">  </span><span class="err">CoreFoundation</span><span class="w">                	</span><span class="mi">0</span><span class="err">x</span><span class="mi">0000000182</span><span class="err">bc</span><span class="mi">922</span><span class="err">c</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">182</span><span class="err">aec</span><span class="mi">000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">905772</span><span class="w">
+</span><span class="mi">12</span><span class="w">  </span><span class="err">CoreFoundation</span><span class="w">                	</span><span class="mi">0</span><span class="err">x</span><span class="mi">0000000182</span><span class="err">bc</span><span class="mi">960</span><span class="err">c</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">182</span><span class="err">aec</span><span class="mi">000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">906764</span><span class="w">
+</span><span class="mi">13</span><span class="w">  </span><span class="err">CoreFoundation</span><span class="w">                	</span><span class="mi">0</span><span class="err">x</span><span class="mi">0000000182</span><span class="err">af</span><span class="mi">52</span><span class="err">d</span><span class="mi">0</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">182</span><span class="err">aec</span><span class="mi">000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">37584</span><span class="w">
+</span><span class="mi">14</span><span class="w">  </span><span class="err">GraphicsServices</span><span class="w">              	</span><span class="mi">0</span><span class="err">x</span><span class="mi">000000018</span><span class="err">c</span><span class="mi">30</span><span class="err">b</span><span class="mi">6</span><span class="err">f</span><span class="mi">8</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">18</span><span class="err">c</span><span class="mi">300000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">46840</span><span class="w">
+</span><span class="mi">15</span><span class="w">  </span><span class="err">UIKit</span><span class="w">                         	</span><span class="mi">0</span><span class="err">x</span><span class="mi">00000001876</span><span class="err">bafa</span><span class="mi">8</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">187644000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">487336</span><span class="w">
+</span><span class="mi">16</span><span class="w">  </span><span class="err">XXXAPP</span><span class="w">              	</span><span class="mi">0</span><span class="err">x</span><span class="mi">00000001006</span><span class="err">c</span><span class="mi">6468</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">10006</span><span class="err">c</span><span class="mi">000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">6661224</span><span class="w">
+</span><span class="mi">17</span><span class="w">  </span><span class="err">libdyld.dylib</span><span class="w">                 	</span><span class="mi">0</span><span class="err">x</span><span class="mi">0000000194</span><span class="err">abea</span><span class="mi">04</span><span class="w"> </span><span class="mi">0</span><span class="err">x</span><span class="mi">194</span><span class="err">abc</span><span class="mi">000</span><span class="w"> </span><span class="err">+</span><span class="w"> </span><span class="mi">10756</span><span class="w">
+</span></code></pre>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>关键字</th>
+      <th>含义</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Incident Idnetifier</td>
+      <td>闪退的唯一标示</td>
+    </tr>
+    <tr>
+      <td>CrashReporter Key</td>
+      <td>设备标识相对应的唯一键值(并非真正的设备的UDID，苹果为了保护用户隐私iOS6以后已经无法获取)。通常同一个设备上同一版本的App发生Crash时，该值都是一样的。</td>
+    </tr>
+    <tr>
+      <td>Hardware Model</td>
+      <td>设备类型</td>
+    </tr>
+    <tr>
+      <td>Version</td>
+      <td>当前App的版本号，由Info.plist中的两个字段组成，CFBundleShortVersionString and CFBundleVersion<img src="https://github.com/StartHui/MarkDowdImage/blob/master/Crash/buildnum.png?raw=true" alt="image" /></td>
+    </tr>
+    <tr>
+      <td>Code Type</td>
+      <td>当前App的CPU架构</td>
+    </tr>
+    <tr>
+      <td>Exception Types</td>
+      <td>异常类型</td>
+    </tr>
+    <tr>
+      <td>Exception Subtype</td>
+      <td>异常子类型</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="️--每次打包的时候一定要确保-version的唯一性">⚠️  每次打包的时候，一定要确保 Version的唯一性。</h2>
+
+<p>常见的异常类型</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>异常</th>
+      <th>描述</th>
+      <th>注释</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>EXC_BAD_ACCESS</td>
+      <td>Bad Memory Access</td>
+      <td>Access to “bad” memory address. The “bad” can be either “the address does not exist” or “the app does not have privilege to access to”. So it usually ties to SIGBUS and SIGSEGV.</td>
+    </tr>
+    <tr>
+      <td>EXC_CRASH</td>
+      <td>Abnormal Exit</td>
+      <td>Usually tie to SIGABRT, meaning the app exits abnormally by detecting some uncaught exceptions through the code.</td>
+    </tr>
+    <tr>
+      <td>EXC_BREAKPOINT</td>
+      <td>Trace / breakpoint  Trap</td>
+      <td>Usually tie to SIGTRAP. Can be triggered either by your own code or NSExceptions being thrown.</td>
+    </tr>
+    <tr>
+      <td>EXC_GUARD</td>
+      <td>Violated Guarded Resource Protection</td>
+      <td>Be triggered by violating a guarded resource protection, like “certain file descriptor”.</td>
+    </tr>
+    <tr>
+      <td>EXC_BAD_INSTRUCTION</td>
+      <td>Illegal Instruction</td>
+      <td>Usually related to certain illegal or undefined instruction or operand.</td>
+    </tr>
+    <tr>
+      <td>EXC_RESOURCE</td>
+      <td>Resource Limit</td>
+      <td>App crashes by hitting resource consumption limit.</td>
+    </tr>
+    <tr>
+      <td>00000020</td>
+      <td>Hexadecimal Exception Type</td>
+      <td>Not “OS Kernel” exception.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>参考文章
+http://www.5neo.be/understanding-ios-exception-types/</p>
+
+<h2 id="三符号化闪退日志">三、符号化闪退日志</h2>
+
+<p>1、获取symbolicatecrash 工具</p>
+
+<p>打开终端输入下面的命令</p>
+
+<blockquote>
+  <p>find /Applications/Xcode.app -name symbolicatecrash -type f</p>
+</blockquote>
+
+<p>或者</p>
+
+<blockquote>
+  <p>find /Applications/Xcode.app -name symbolicatecrash</p>
+</blockquote>
+
+<p>我们会得到这样一个路径</p>
+
+<blockquote>
+  <p>/Applications/Xcode.app/Contents/Developer/Platforms/AppleTVSimulator.platform/Developer/Library/PrivateFrameworks/DVTFoundation.framework/symbolicatecrash</p>
+</blockquote>
+
+<p>打开finder 前往这个路径</p>
+
+<p><img src="https://github.com/StartHui/MarkDowdImage/blob/master/Crash/sy.png?raw=true" alt="image" /></p>
+
+<p>拷贝 symbolicatecrash</p>
+
+<p>2、获取 .dysm 文件</p>
+
+<p>打开Xcode 选择 window &gt;  organizer &gt;  选择Archives 标签 。我们可以看到我们打完包的一个列表。我们可以看见闪退日志的信息里面有这样一个版本号的信息 Version:             17040602528 (6.0.0)，，找到打包列表里面和这个 build 号相对应的.xcarchive文件，然后右键show in finder</p>
+<blockquote>
+  <p>显示包内容进入dSYMs 文件夹&gt;拷贝项目相应的 .dsyM 文件</p>
+</blockquote>
+
+<p>3、将.crash 文件 和 拷贝出来的 symbolicatecrash 脚本 以及 闪退日志对应的 .dsyM 文件拷贝到同一个文件夹里面。然后打开终端进入这个文件夹。</p>
+
+<p><img src="https://github.com/StartHui/MarkDowdImage/blob/master/Crash/123123.png?raw=true" alt="image" /></p>
+
+<blockquote>
+  <p>cd /Users/StarHui/Desktop/20170417crash/crash1</p>
+</blockquote>
+
+<p>注释：cd /Users/你电脑的用户名/存放上述三个文件的文件夹路径</p>
+
+<p>然后输入（只需要输入一次）</p>
+
+<blockquote>
+  <p>export DEVELOPER_DIR=”/Applications/XCode.app/Contents/Developer”</p>
+</blockquote>
+
+<p>然后输入</p>
+
+<blockquote>
+  <p>./symbolicatecrash  crash1.crash  xxx.app.dSYM &gt; crashLog3.txt</p>
+</blockquote>
+
+<p>等命令执行完成之后，我们可以在刚才的文件夹下面发现 crashLog3.txt 符号化后的闪退日志。</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>crash1.crash    闪退日志
+xxx.app.dSYM    dySM 文件
+符号化后的日志  crashLog3.txt
+</code></pre>
+</div>
+
+<p>我们可以在已经符号化后的闪退日志里面看到我们代码出错的地方。（可以直接定位到闪退发生在那个文件的那一行代码）</p>
+
+<p><img src="https://github.com/StartHui/MarkDowdImage/blob/master/Crash/213123123.png?raw=true" alt="image" /></p>
+
+<p>#总结：写的有不好的地方希望大家指出，我会修正的，大家有什么看不明白的也可以在评论里面提问，我会尽力解答。</p>
+
+  </article>
+<!-- 多说评论框 start -->
+	<!--<div class="ds-thread" data-thread-key=/ios/2017/05/05/iOS crash 闪退日志解析 data-title=iOS crash 闪退日志解析 data-url=//ios/2017/05/05/iOS-crash-%E9%97%AA%E9%80%80%E6%97%A5%E5%BF%97%E8%A7%A3%E6%9E%90.html></div>-->
+<!-- 多说评论框 end -->
+<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
+<script type="text/javascript">
+var duoshuoQuery = {short_name:"pawpaw"};
+	(function() {
+		var ds = document.createElement('script');
+		ds.type = 'text/javascript';ds.async = true;
+		ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+		ds.charset = 'UTF-8';
+		(document.getElementsByTagName('head')[0] 
+		 || document.getElementsByTagName('body')[0]).appendChild(ds);
+	})();
+	</script>
+<!-- 多说公共JS代码 end -->
+</div>
+
+      </div>
+    </div>
+    
+    <footer class="footer">
+  <div id="gotop">^</div>
+  <br>
+	@StarHui.
+</footer>
+
+    
+  </body>
+
+</html>

@@ -1,0 +1,245 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="3.4.3">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2017-05-07T12:18:55+08:00</updated><id>http://localhost:4000/</id><title type="html">StarHui</title><subtitle># Write an awesome description for your new site here. You can edit this # line in _config.yml. It will appear in your document head meta (for # Google search results) and in your feed.xml site description. StarHui的个人博客
+</subtitle><entry><title type="html">iOS crash 闪退日志解析</title><link href="http://localhost:4000/ios/2017/05/05/iOS-crash-%E9%97%AA%E9%80%80%E6%97%A5%E5%BF%97%E8%A7%A3%E6%9E%90.html" rel="alternate" type="text/html" title="iOS crash 闪退日志解析" /><published>2017-05-06T02:03:09+08:00</published><updated>2017-05-06T02:03:09+08:00</updated><id>http://localhost:4000/ios/2017/05/05/iOS%20crash%20%E9%97%AA%E9%80%80%E6%97%A5%E5%BF%97%E8%A7%A3%E6%9E%90</id><content type="html" xml:base="http://localhost:4000/ios/2017/05/05/iOS-crash-%E9%97%AA%E9%80%80%E6%97%A5%E5%BF%97%E8%A7%A3%E6%9E%90.html">&lt;h1 id=&quot;前言&quot;&gt;前言&lt;/h1&gt;
+
+&lt;p&gt;查看闪退日志的步骤&lt;br /&gt;
+（1）获取闪退日志&lt;br /&gt;
+（2）获取symbolicatecrash 脚本&lt;br /&gt;
+（3）获取闪退日志对应的符号表（.dSYM 文件）&lt;br /&gt;
+（4）解析闪退日志&lt;/p&gt;
+
+&lt;h2 id=&quot;苹果官网关于闪退日志的介绍&quot;&gt;苹果官网关于闪退日志的介绍：&lt;/h2&gt;
+&lt;p&gt;https://developer.apple.com/library/content/technotes/tn2151/_index.html&lt;/p&gt;
+
+&lt;p&gt;Understanding and Analyzing Application Crash Reports&lt;/p&gt;
+
+&lt;p&gt;When an application crashes, a crash report is created which is very useful for understanding what caused the crash. This document contains essential information about how to symbolicate, understand, and interpret crash reports.&lt;/p&gt;
+
+&lt;p&gt;理解以及分析闪退日志：&lt;/p&gt;
+
+&lt;p&gt;当app发生闪退的时候，会创建闪退日志，这对于我们查找闪退原因是非常有用的。&lt;/p&gt;
+
+&lt;h2 id=&quot;一获取ios-设备上闪退日志&quot;&gt;一、获取iOS 设备上闪退日志&lt;/h2&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://github.com/StartHui/MarkDowdImage/blob/master/Crash/tn2151_crash_flow.png?raw=true&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;1、（windows 电脑）使用pp助手获取闪退日志 将iOS 设备和winwods电脑连接，打开pp助手，查看闪退日志，将闪退日志导出，导出后会得到一个后缀为ips的文件。修改后缀名为.crash。 &lt;br /&gt;
+2、（MAC电脑）将设备连接到电脑，进入 ~/Library/Logs/CrashReporter/MobileDevice 文件夹可以获得闪退日志。&lt;br /&gt;
+3、通过Xcode 获取闪退日志 ：打开Xcode &amp;gt; window &amp;gt; Devices &amp;gt; view device logs 就可以查看闪退日志。&lt;br /&gt;
+4、获取已经发布到appStore上和上传到testflight 上的包，在用户和测试员设备上发生的闪退日志。打开Xcode&amp;gt;Window&amp;gt;organizer 选择 crashes 标签。然后我们就可以看见一个闪退日志列表。选中某一个闪退日志右键显示包内容，然后进入DistributionInfos&amp;gt;all&amp;gt;logs。就可以看见闪退日志了。        （⚠️ 如果发布的时.dysm 文件也上传到了apple 的服务器，一般点击 open in project 就会直接定位到项目闪退的位置。
+苹果官网关于发布到市场和testflight 上的闪退日志的介绍
+https://developer.apple.com/library/content/documentation/IDEs/Conceptual/AppDistributionGuide/AnalyzingCrashReports/AnalyzingCrashReports.html ）&lt;/p&gt;
+
+&lt;h2 id=&quot;二闪退日志的组成&quot;&gt;二、闪退日志的组成&lt;/h2&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;app_name&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;XXXAPP&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;    
+&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;app_version&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;6.0.0&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  
+&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;bundleID&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;com.XXXAPP.app&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  
+&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;adam_id&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;os_version&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  
+&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;iPhone OS 8.3 (12F70)&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  
+&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;slice_uuid&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;xxxxxx&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  
+&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;share_with_app_devs&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;kc&quot;&gt;false&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;build_version&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;17040602528&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;is_first_party&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;kc&quot;&gt;false&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;bug_type&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;109&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;name&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;XXXAPP&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Incident&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Identifier:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;A&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;7427996-4&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;DA&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4-457&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;E-B&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;868-990&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;F&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;EF&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;557&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;F&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;CrashReporter&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Key:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;   &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;bc&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6652&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;b&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;f&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;9&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;d&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;95786&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;ce&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;42&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;bd&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4746&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;d&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;49&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;fe&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;7071&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;a&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Hardware&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Model:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;      &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;iPhone&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;7&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Process:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;             &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;XXXAPP&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;12119&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Path:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;                &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;/private/var/mobile/Containers/Bundle/Application/&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;271&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;EC&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;22&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;E-C&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;EC&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;-4256&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;-A&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;7&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;DD&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;-480&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;F&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;78&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;C&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;EE&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;52&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;/XXXAPP.app/XXXAPP&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Identifier:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;          &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;com.XXXAPP.app&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Version:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;             &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;17040602528&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;6.0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Code&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Type:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;           &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;ARM&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;-64&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;(Native)&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Parent&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Process:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;      &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;launchd&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Date/Time:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;           &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2017-04-10&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;13&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;35&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;15.100&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0800&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Launch&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Time:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;         &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2017-04-10&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;13&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;18&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;14.005&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0800&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;OS&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Version:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;          &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;iOS&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;8.3&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;12&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;F&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;70&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Report&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Version:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;      &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;105&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Exception&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Type:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;EXC_BAD_ACCESS&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;(SIGSEGV)&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Exception&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Subtype:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;KERN_INVALID_ADDRESS&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;at&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0000000000000010&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Triggered&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;by&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Thread:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Thread&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;name:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Dispatch&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;queue:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;com.apple.main-thread&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Thread&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;Crashed:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;   &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;libobjc.A.dylib&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;               	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0000000194453&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;bd&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;194438000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;113616&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;   &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;XXXAPP&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;              	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0000000100944330&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;10006&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;9274160&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;   &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;XXXAPP&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;              	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0000000100935014&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;10006&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;9211924&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;3&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;   &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;XXXAPP&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;              	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0000000100952&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;be&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;10006&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;9333732&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;   &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;XXXAPP&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;              	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000000010099&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;af&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;78&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;10006&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;9629560&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;   &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;XXXAPP&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;              	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;00000001009&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;af&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;a&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;10006&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;9712800&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;   &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;UIKit&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;                         	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000000018766&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;bfbc&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;187644000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;163772&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;7&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;   &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;UIKit&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;                         	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;00000001876&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;d&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;82&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;d&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;187644000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;606932&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;   &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;UIKit&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;                         	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;00000001876&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;d&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;823&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;187644000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;606780&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;9&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;   &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;UIKit&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;                         	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0000000187648710&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;187644000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;18192&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;10&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;CoreFoundation&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;                	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0000000182&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;bcc&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;a&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;182&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;aec&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;918176&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;11&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;CoreFoundation&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;                	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0000000182&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;bc&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;922&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;182&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;aec&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;905772&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;12&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;CoreFoundation&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;                	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0000000182&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;bc&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;960&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;182&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;aec&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;906764&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;13&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;CoreFoundation&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;                	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0000000182&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;af&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;52&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;d&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;182&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;aec&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;37584&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;14&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;GraphicsServices&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;              	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000000018&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;30&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;b&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;f&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;18&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;300000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;46840&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;15&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;UIKit&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;                         	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;00000001876&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;bafa&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;187644000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;487336&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;16&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;XXXAPP&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;              	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;00000001006&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6468&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;10006&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;c&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;6661224&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;17&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;  &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;libdyld.dylib&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;                 	&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0000000194&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;abea&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;04&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;194&lt;/span&gt;&lt;span class=&quot;err&quot;&gt;abc&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;000&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;err&quot;&gt;+&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;10756&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;关键字&lt;/th&gt;
+      &lt;th&gt;含义&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Incident Idnetifier&lt;/td&gt;
+      &lt;td&gt;闪退的唯一标示&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;CrashReporter Key&lt;/td&gt;
+      &lt;td&gt;设备标识相对应的唯一键值(并非真正的设备的UDID，苹果为了保护用户隐私iOS6以后已经无法获取)。通常同一个设备上同一版本的App发生Crash时，该值都是一样的。&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Hardware Model&lt;/td&gt;
+      &lt;td&gt;设备类型&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Version&lt;/td&gt;
+      &lt;td&gt;当前App的版本号，由Info.plist中的两个字段组成，CFBundleShortVersionString and CFBundleVersion&lt;img src=&quot;https://github.com/StartHui/MarkDowdImage/blob/master/Crash/buildnum.png?raw=true&quot; alt=&quot;image&quot; /&gt;&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Code Type&lt;/td&gt;
+      &lt;td&gt;当前App的CPU架构&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Exception Types&lt;/td&gt;
+      &lt;td&gt;异常类型&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;Exception Subtype&lt;/td&gt;
+      &lt;td&gt;异常子类型&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;h2 id=&quot;️--每次打包的时候一定要确保-version的唯一性&quot;&gt;⚠️  每次打包的时候，一定要确保 Version的唯一性。&lt;/h2&gt;
+
+&lt;p&gt;常见的异常类型&lt;/p&gt;
+
+&lt;table&gt;
+  &lt;thead&gt;
+    &lt;tr&gt;
+      &lt;th&gt;异常&lt;/th&gt;
+      &lt;th&gt;描述&lt;/th&gt;
+      &lt;th&gt;注释&lt;/th&gt;
+    &lt;/tr&gt;
+  &lt;/thead&gt;
+  &lt;tbody&gt;
+    &lt;tr&gt;
+      &lt;td&gt;EXC_BAD_ACCESS&lt;/td&gt;
+      &lt;td&gt;Bad Memory Access&lt;/td&gt;
+      &lt;td&gt;Access to “bad” memory address. The “bad” can be either “the address does not exist” or “the app does not have privilege to access to”. So it usually ties to SIGBUS and SIGSEGV.&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;EXC_CRASH&lt;/td&gt;
+      &lt;td&gt;Abnormal Exit&lt;/td&gt;
+      &lt;td&gt;Usually tie to SIGABRT, meaning the app exits abnormally by detecting some uncaught exceptions through the code.&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;EXC_BREAKPOINT&lt;/td&gt;
+      &lt;td&gt;Trace / breakpoint  Trap&lt;/td&gt;
+      &lt;td&gt;Usually tie to SIGTRAP. Can be triggered either by your own code or NSExceptions being thrown.&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;EXC_GUARD&lt;/td&gt;
+      &lt;td&gt;Violated Guarded Resource Protection&lt;/td&gt;
+      &lt;td&gt;Be triggered by violating a guarded resource protection, like “certain file descriptor”.&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;EXC_BAD_INSTRUCTION&lt;/td&gt;
+      &lt;td&gt;Illegal Instruction&lt;/td&gt;
+      &lt;td&gt;Usually related to certain illegal or undefined instruction or operand.&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;EXC_RESOURCE&lt;/td&gt;
+      &lt;td&gt;Resource Limit&lt;/td&gt;
+      &lt;td&gt;App crashes by hitting resource consumption limit.&lt;/td&gt;
+    &lt;/tr&gt;
+    &lt;tr&gt;
+      &lt;td&gt;00000020&lt;/td&gt;
+      &lt;td&gt;Hexadecimal Exception Type&lt;/td&gt;
+      &lt;td&gt;Not “OS Kernel” exception.&lt;/td&gt;
+    &lt;/tr&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;
+
+&lt;p&gt;参考文章
+http://www.5neo.be/understanding-ios-exception-types/&lt;/p&gt;
+
+&lt;h2 id=&quot;三符号化闪退日志&quot;&gt;三、符号化闪退日志&lt;/h2&gt;
+
+&lt;p&gt;1、获取symbolicatecrash 工具&lt;/p&gt;
+
+&lt;p&gt;打开终端输入下面的命令&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;find /Applications/Xcode.app -name symbolicatecrash -type f&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;或者&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;find /Applications/Xcode.app -name symbolicatecrash&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;我们会得到这样一个路径&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;/Applications/Xcode.app/Contents/Developer/Platforms/AppleTVSimulator.platform/Developer/Library/PrivateFrameworks/DVTFoundation.framework/symbolicatecrash&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;打开finder 前往这个路径&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://github.com/StartHui/MarkDowdImage/blob/master/Crash/sy.png?raw=true&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;拷贝 symbolicatecrash&lt;/p&gt;
+
+&lt;p&gt;2、获取 .dysm 文件&lt;/p&gt;
+
+&lt;p&gt;打开Xcode 选择 window &amp;gt;  organizer &amp;gt;  选择Archives 标签 。我们可以看到我们打完包的一个列表。我们可以看见闪退日志的信息里面有这样一个版本号的信息 Version:             17040602528 (6.0.0)，，找到打包列表里面和这个 build 号相对应的.xcarchive文件，然后右键show in finder&lt;/p&gt;
+&lt;blockquote&gt;
+  &lt;p&gt;显示包内容进入dSYMs 文件夹&amp;gt;拷贝项目相应的 .dsyM 文件&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;3、将.crash 文件 和 拷贝出来的 symbolicatecrash 脚本 以及 闪退日志对应的 .dsyM 文件拷贝到同一个文件夹里面。然后打开终端进入这个文件夹。&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://github.com/StartHui/MarkDowdImage/blob/master/Crash/123123.png?raw=true&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;cd /Users/StarHui/Desktop/20170417crash/crash1&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;注释：cd /Users/你电脑的用户名/存放上述三个文件的文件夹路径&lt;/p&gt;
+
+&lt;p&gt;然后输入（只需要输入一次）&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;export DEVELOPER_DIR=”/Applications/XCode.app/Contents/Developer”&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;然后输入&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;./symbolicatecrash  crash1.crash  xxx.app.dSYM &amp;gt; crashLog3.txt&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;等命令执行完成之后，我们可以在刚才的文件夹下面发现 crashLog3.txt 符号化后的闪退日志。&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;crash1.crash    闪退日志
+xxx.app.dSYM    dySM 文件
+符号化后的日志  crashLog3.txt
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;我们可以在已经符号化后的闪退日志里面看到我们代码出错的地方。（可以直接定位到闪退发生在那个文件的那一行代码）&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://github.com/StartHui/MarkDowdImage/blob/master/Crash/213123123.png?raw=true&quot; alt=&quot;image&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;#总结：写的有不好的地方希望大家指出，我会修正的，大家有什么看不明白的也可以在评论里面提问，我会尽力解答。&lt;/p&gt;</content><author><name></name></author><summary type="html">前言</summary></entry></feed>

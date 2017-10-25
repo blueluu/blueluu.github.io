@@ -1,0 +1,35 @@
+---
+layout: post
+title:  "vue 框架建立过程"
+date:   2017-10-10 18:03:09
+categories: vue
+---
+建立过程
+
+============
+
+最新稳定版本vue安装
+
+$ npm install vue
+
+全局安装 vue-cli
+
+$ npm install --global vue-cli
+
+创建一个基于 webpack 模板的新项目
+
+$ vue init webpack my-project
+
+创建vue-router和vue-resource
+
+$ vue install vue-router vue-resource --save
+
+安装依赖，走你
+
+$ cd my-project
+$ npm install
+$ npm run dev
+
+至此一个vue的框架已经搭建好了。
+
+=====================
